@@ -1,7 +1,7 @@
 from qtpy import QtWidgets, QtCore
-
 import pyvista as pv
 from pyvistaqt import QtInteractor, MainWindow
+from serial.tools.list_ports import comports as list_comports
 
 from hrafnagud.utils.cube import get_cube_points
 
@@ -9,7 +9,7 @@ from hrafnagud.utils.cube import get_cube_points
 class MyMainWindow(MainWindow):
 
     def __init__(self):
-        QtWidgets.QMainWindow.__init__(self)
+        QtWidgets.QMainWindow.__init__(self, None)
 
         self.pointsDockWidget = QtWidgets.QDockWidget(self)
 
@@ -29,18 +29,7 @@ class MyMainWindow(MainWindow):
 
         self.addDockWidget(QtCore.Qt.DockWidgetArea.RightDockWidgetArea, self.surfaceDockWidget)
 
-        mainMenu = self.menuBar()
-        meshesMenu = mainMenu.addMenu('Meshes')
-        showPointsAction = QtWidgets.QAction('Show Points', self)
-        showPointsAction.setCheckable(True)
-        showPointsAction.triggered.connect(self.pointsDockWidget.setVisible)
-        meshesMenu.addAction(showPointsAction)
-        showPointsAction.setChecked(True)
-        showSurfaceAction = QtWidgets.QAction('Show Surface', self)
-        showSurfaceAction.setCheckable(True)
-        showSurfaceAction.triggered.connect(self.surfaceDockWidget.setVisible)
-        meshesMenu.addAction(showSurfaceAction)
-        showSurfaceAction.setChecked(True)
+        self.load_menu()
 
         self.add_meshes()
 
@@ -53,3 +42,50 @@ class MyMainWindow(MainWindow):
 
         surface = point_cloud.delaunay_3d()
         self.plotter_surface.add_mesh(surface, show_edges=True)
+
+    def load_menu(self):
+        mainMenu = self.menuBar()
+
+        fileMenu = mainMenu.addMenu("File")
+
+        meshesMenu = fileMenu.addMenu('Meshes')
+        showPointsAction = QtWidgets.QAction('Show Points', self)
+        showPointsAction.setCheckable(True)
+        showPointsAction.triggered.connect(self.pointsDockWidget.setVisible)
+        meshesMenu.addAction(showPointsAction)
+        showPointsAction.setChecked(True)
+        showSurfaceAction = QtWidgets.QAction('Show Surface', self)
+        showSurfaceAction.setCheckable(True)
+        showSurfaceAction.triggered.connect(self.surfaceDockWidget.setVisible)
+        meshesMenu.addAction(showSurfaceAction)
+        showSurfaceAction.setChecked(True)
+
+        settingSubmenu = fileMenu.addMenu("Settings")
+        portsSubmenu = settingSubmenu.addMenu("Ports")
+        for com in list_comports():
+            comAction = portsSubmenu.addAction(com.name)
+            comAction.setCheckable(True)
+            comAction.triggered.connect(self.set_comport)
+
+        exportSubmenu = fileMenu.addMenu("Export")
+        stlAction = exportSubmenu.addAction("stl")
+        stlAction.triggered.connect(self.export_stl)
+
+    def set_comport(self):
+        # FIXME: multiple ports can be set
+        dlg = QtWidgets.QMessageBox(self)
+        dlg.setWindowTitle("Success!")
+        dlg.setText(f"{self.sender().text()} is set")
+        button = dlg.exec()
+
+        if button == QtWidgets.QMessageBox.Ok:
+            return
+
+    def export_stl(self):
+        save_path, _file_format = QtWidgets.QFileDialog.getSaveFileName(self,
+                                                                        "Сохранить",
+                                                                        ".",
+                                                                        "STL (*.stl)")
+        if not save_path:
+            return
+        (self.plotter_points.mesh + self.plotter_surface.mesh.extract_surface()).save(save_path)
