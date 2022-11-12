@@ -1,15 +1,59 @@
 from qtpy import QtWidgets, QtCore
 import pyvista as pv
 from pyvistaqt import QtInteractor, MainWindow
-from serial.tools.list_ports import comports as list_comports
+import serial
+import serial.tools.list_ports
 
 from hrafnagud.utils.cube import get_cube_points
 
 
-class MyMainWindow(MainWindow):
+class QDriverThread(QtCore.QThread):
+
+    coordinatesReceived = QtCore.Signal(list, name="coordinatesReceived")
+
+    def __init__(self, port, parent=None):
+        super(QDriverThread, self).__init__(parent)
+        self.port = port
+        self.is_scanning = False
+
+    def __del__(self):
+        self.is_scanning = False
+        self.port.close()
+        self.wait()
+
+    def run(self):
+        # TODO: check for port is set
+        # TODO: check if port is correct
+        if not self.port.is_open:
+            self.port.open()
+        self.is_scanning = True
+        while self.is_scanning:
+            data = self.port.readline()
+            if data:
+                coordinates = self.process(data)
+                self.coordinatesReceived.emit(coordinates)
+                self.sleep(1)
+            else:
+                break
+
+    @staticmethod
+    def process(data):
+        coordinates = [list(map(float, data.split()))]
+        return coordinates
+
+
+class HrafnagudMainWindow(MainWindow):
+
+    PORT_BAUDRATE = 9600
 
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self, None)
+
+        self.port = None
+        self.driverThread = QDriverThread(self.port, self)
+        self.driverThread.coordinatesReceived.connect(self.update_mesh)
+        self.startAction = None
+        self.stopAction = None
 
         self.pointsDockWidget = QtWidgets.QDockWidget(self)
 
@@ -62,24 +106,32 @@ class MyMainWindow(MainWindow):
 
         settingSubmenu = fileMenu.addMenu("Settings")
         portsSubmenu = settingSubmenu.addMenu("Ports")
-        for com in list_comports():
+        portsActionGroup = QtWidgets.QActionGroup(portsSubmenu)
+        # TODO: add ability to update list of port with device is plugged in
+        for com in serial.tools.list_ports.comports():
             comAction = portsSubmenu.addAction(com.name)
             comAction.setCheckable(True)
             comAction.triggered.connect(self.set_comport)
+            comAction.setActionGroup(portsActionGroup)
 
         exportSubmenu = fileMenu.addMenu("Export")
         stlAction = exportSubmenu.addAction("stl")
         stlAction.triggered.connect(self.export_stl)
 
-    def set_comport(self):
-        # FIXME: multiple ports can be set
-        dlg = QtWidgets.QMessageBox(self)
-        dlg.setWindowTitle("Success!")
-        dlg.setText(f"{self.sender().text()} is set")
-        button = dlg.exec()
+        self.startAction = mainMenu.addAction("Start")
+        self.startAction.triggered.connect(self.start_scan)
+        self.startAction.setDisabled(True)
+        self.stopAction = mainMenu.addAction("Stop")
+        self.stopAction.triggered.connect(self.stop_scan)
+        self.stopAction.setDisabled(True)
 
-        if button == QtWidgets.QMessageBox.Ok:
-            return
+    def set_comport(self):
+        # TODO: move port to driver and don't open without start
+        self.port = serial.Serial(self.sender().text(), self.PORT_BAUDRATE)
+        self.driverThread.port = self.port
+        QtWidgets.QMessageBox.information(self, "Success!", f"{self.port.port} is set")
+        # TODO: more casual showing start button
+        self.startAction.setDisabled(False)
 
     def export_stl(self):
         save_path, _file_format = QtWidgets.QFileDialog.getSaveFileName(self,
@@ -89,3 +141,16 @@ class MyMainWindow(MainWindow):
         if not save_path:
             return
         (self.plotter_points.mesh + self.plotter_surface.mesh.extract_surface()).save(save_path)
+
+    def start_scan(self):
+        self.driverThread.start()
+        self.startAction.setDisabled(True)
+        self.stopAction.setDisabled(False)
+
+    def stop_scan(self):
+        self.driverThread.terminate()
+        self.startAction.setDisabled(False)
+        self.stopAction.setDisabled(True)
+
+    def update_mesh(self, coordinates):
+        self.plotter_points.add_points(pv.PolyData(coordinates))
