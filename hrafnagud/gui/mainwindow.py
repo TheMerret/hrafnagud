@@ -1,14 +1,11 @@
-from qtpy import QtWidgets, QtCore
 import pyvista as pv
-from pyvistaqt import QtInteractor, MainWindow
 import serial
 import serial.tools.list_ports
-
-from hrafnagud.utils.cube import get_cube_points
+from pyvistaqt import QtInteractor, MainWindow
+from qtpy import QtWidgets, QtCore
 
 
 class QDriverThread(QtCore.QThread):
-
     coordinatesReceived = QtCore.Signal(list, name="coordinatesReceived")
 
     def __init__(self, port, parent=None):
@@ -43,7 +40,6 @@ class QDriverThread(QtCore.QThread):
 
 
 class HrafnagudMainWindow(MainWindow):
-
     PORT_BAUDRATE = 9600
 
     def __init__(self):
@@ -74,18 +70,6 @@ class HrafnagudMainWindow(MainWindow):
         self.addDockWidget(QtCore.Qt.DockWidgetArea.RightDockWidgetArea, self.surfaceDockWidget)
 
         self.load_menu()
-
-        self.add_meshes()
-
-    def add_meshes(self):
-        """ add a mesh to the pyqt frame """
-        points = get_cube_points()
-        point_cloud = pv.PolyData(points)
-        self.plotter_points.add_mesh(point_cloud)
-        self.plotter_points.reset_camera()
-
-        surface = point_cloud.delaunay_3d()
-        self.plotter_surface.add_mesh(surface, show_edges=True)
 
     def load_menu(self):
         mainMenu = self.menuBar()
