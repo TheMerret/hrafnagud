@@ -47,9 +47,11 @@ class QSetupDialog(QtWidgets.QDialog):
         # TODO: oop data serialization
         self.conf = {
             "table_rotation": 1,
-            "vertical_move": 1,
+            "vertical_step": 1,
             "sensor_vertical": False,
-            "sensor_horizontal": True
+            "sensor_vertical_step": None,
+            "sensor_horizontal": True,
+            "sensor_horizontal_step": 1
         }
 
         grid_layout = QtWidgets.QGridLayout()
@@ -63,13 +65,27 @@ class QSetupDialog(QtWidgets.QDialog):
         self.vertical_move_spinbox = QtWidgets.QSpinBox(self)
         grid_layout.addWidget(self.vertical_move_spinbox, 1, 1)
         self.sensors_group = QtWidgets.QGroupBox("Оси датчика", self)
-        vbox = QtWidgets.QVBoxLayout()
-        self.sensors_group.setLayout(vbox)
+        grid_box_layout = QtWidgets.QGridLayout()
+        self.sensors_group.setLayout(grid_box_layout)
         # TODO: minimum 1 checkbox have to be checked
         self.sensor_vertical_checkbox = QtWidgets.QCheckBox("По вертикали", self)
-        vbox.addWidget(self.sensor_vertical_checkbox)
+        grid_box_layout.addWidget(self.sensor_vertical_checkbox, 0, 0)
+        self.sensors_vertical_label = QtWidgets.QLabel("Шаг поворота")
+        self.sensor_vertical_checkbox.stateChanged.connect(self.sensors_vertical_label.setEnabled)
+        grid_box_layout.addWidget(self.sensors_vertical_label, 0, 1)
+        self.sensor_vertical_spinbox = QtWidgets.QSpinBox(self)
+        self.sensor_vertical_checkbox.stateChanged.connect(self.sensor_vertical_spinbox.setEnabled)
+        self.sensor_vertical_checkbox.stateChanged.emit(False)
+        grid_box_layout.addWidget(self.sensor_vertical_spinbox, 0, 2)
         self.sensor_horizontal_checkbox = QtWidgets.QCheckBox("По горизонтали", self)
-        vbox.addWidget(self.sensor_horizontal_checkbox)
+        grid_box_layout.addWidget(self.sensor_horizontal_checkbox, 1, 0)
+        self.sensors_horizontal_label = QtWidgets.QLabel("Шаг поворота")
+        self.sensor_horizontal_checkbox.stateChanged.connect(self.sensors_horizontal_label.setEnabled)
+        grid_box_layout.addWidget(self.sensors_horizontal_label, 1, 1)
+        self.sensor_horizontal_spinbox = QtWidgets.QSpinBox(self)
+        self.sensor_horizontal_checkbox.stateChanged.connect(self.sensor_horizontal_spinbox.setEnabled)
+        self.sensor_horizontal_checkbox.stateChanged.emit(False)
+        grid_box_layout.addWidget(self.sensor_horizontal_spinbox, 1, 2)
         grid_layout.addWidget(self.sensors_group, 2, 0, 1, 2)
         self.dialog_button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok |
                                                             QtWidgets.QDialogButtonBox.Apply |
@@ -85,9 +101,15 @@ class QSetupDialog(QtWidgets.QDialog):
             # TODO: save conf to global data store
             self.conf = {
                 "table_rotation": self.rotation_spinbox.value(),
-                "vertical_move": self.vertical_move_spinbox.value(),
+                "vertical_step": self.vertical_move_spinbox.value(),
                 "sensor_vertical": self.sensor_vertical_checkbox.isChecked(),
+                "sensor_vertical_step": (self.sensor_vertical_spinbox.value()
+                                         if self.sensor_vertical_checkbox.isChecked()
+                                         else None),
                 "sensor_horizontal": self.sensor_vertical_checkbox.isChecked(),
+                "sensor_horizontal_step": (self.sensor_vertical_spinbox.value()
+                                           if self.sensor_horizontal_checkbox.isChecked()
+                                           else None),
             }
             self.accepted.emit()  # TODO: dedicated slot for apply
 
@@ -126,44 +148,44 @@ class HrafnagudMainWindow(MainWindow):
         self.load_menu()
 
     def load_menu(self):
-        mainMenu = self.menuBar()
+        main_menu = self.menuBar()
 
-        fileMenu = mainMenu.addMenu("File")
+        file_menu = main_menu.addMenu("File")
 
-        meshesMenu = fileMenu.addMenu('Meshes')
-        showPointsAction = QtWidgets.QAction('Show Points', self)
-        showPointsAction.setCheckable(True)
-        showPointsAction.triggered.connect(self.pointsDockWidget.setVisible)
-        meshesMenu.addAction(showPointsAction)
-        showPointsAction.setChecked(True)
-        showSurfaceAction = QtWidgets.QAction('Show Surface', self)
-        showSurfaceAction.setCheckable(True)
-        showSurfaceAction.triggered.connect(self.surfaceDockWidget.setVisible)
-        meshesMenu.addAction(showSurfaceAction)
-        showSurfaceAction.setChecked(True)
+        meshes_menu = file_menu.addMenu('Meshes')
+        show_points_action = QtWidgets.QAction('Show Points', self)
+        show_points_action.setCheckable(True)
+        show_points_action.triggered.connect(self.pointsDockWidget.setVisible)
+        meshes_menu.addAction(show_points_action)
+        show_points_action.setChecked(True)
+        show_surface_action = QtWidgets.QAction('Show Surface', self)
+        show_surface_action.setCheckable(True)
+        show_surface_action.triggered.connect(self.surfaceDockWidget.setVisible)
+        meshes_menu.addAction(show_surface_action)
+        show_surface_action.setChecked(True)
 
-        settingSubmenu = fileMenu.addMenu("Settings")
-        portsSubmenu = settingSubmenu.addMenu("Ports")
-        portsActionGroup = QtWidgets.QActionGroup(portsSubmenu)
+        setting_submenu = file_menu.addMenu("Settings")
+        ports_submenu = setting_submenu.addMenu("Ports")
+        ports_action_group = QtWidgets.QActionGroup(ports_submenu)
         # TODO: add ability to update list of port with device is plugged in
         for com in serial.tools.list_ports.comports():
-            comAction = portsSubmenu.addAction(com.name)
+            comAction = ports_submenu.addAction(com.name)
             comAction.setCheckable(True)
             comAction.triggered.connect(self.set_comport)
-            comAction.setActionGroup(portsActionGroup)
+            comAction.setActionGroup(ports_action_group)
 
-        exportSubmenu = fileMenu.addMenu("Export")
-        stlAction = exportSubmenu.addAction("stl")
-        stlAction.triggered.connect(self.export_stl)
+        export_submenu = file_menu.addMenu("Export")
+        stl_action = export_submenu.addAction("stl")
+        stl_action.triggered.connect(self.export_stl)
 
-        self.startAction = mainMenu.addAction("Start")
+        self.startAction = main_menu.addAction("Start")
         self.startAction.triggered.connect(self.start_scan)
         self.startAction.setDisabled(True)
-        self.stopAction = mainMenu.addAction("Stop")
+        self.stopAction = main_menu.addAction("Stop")
         self.stopAction.triggered.connect(self.stop_scan)
         self.stopAction.setDisabled(True)
 
-        self.setupAction = fileMenu.addAction("Setup Scan")
+        self.setupAction = file_menu.addAction("Setup Scan")
         self.setupAction.triggered.connect(self.show_setup_dialog)
 
     def set_comport(self):
