@@ -17,7 +17,6 @@ class QDriverThread(QtCore.QThread):
         self.is_scanning = False
         if self.port is not None:
             self.port.close()
-        self.wait()
 
     def run(self):
         # TODO: check for port is set
@@ -41,6 +40,7 @@ class QDriverThread(QtCore.QThread):
 
 
 class QSetupDialog(QtWidgets.QDialog):
+    changesApplied = QtCore.Signal(name="changesApplied")
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -67,8 +67,8 @@ class QSetupDialog(QtWidgets.QDialog):
         self.sensors_group = QtWidgets.QGroupBox("Оси датчика", self)
         grid_box_layout = QtWidgets.QGridLayout()
         self.sensors_group.setLayout(grid_box_layout)
-        # TODO: minimum 1 checkbox have to be checked
         self.sensor_vertical_checkbox = QtWidgets.QCheckBox("По вертикали", self)
+        self.sensor_vertical_checkbox.stateChanged.connect(self.keep_sensors_checked)
         grid_box_layout.addWidget(self.sensor_vertical_checkbox, 0, 0)
         self.sensors_vertical_label = QtWidgets.QLabel("Шаг поворота")
         self.sensor_vertical_checkbox.stateChanged.connect(self.sensors_vertical_label.setEnabled)
@@ -78,13 +78,14 @@ class QSetupDialog(QtWidgets.QDialog):
         self.sensor_vertical_checkbox.stateChanged.emit(False)
         grid_box_layout.addWidget(self.sensor_vertical_spinbox, 0, 2)
         self.sensor_horizontal_checkbox = QtWidgets.QCheckBox("По горизонтали", self)
+        self.sensor_horizontal_checkbox.stateChanged.connect(self.keep_sensors_checked)
         grid_box_layout.addWidget(self.sensor_horizontal_checkbox, 1, 0)
         self.sensors_horizontal_label = QtWidgets.QLabel("Шаг поворота")
         self.sensor_horizontal_checkbox.stateChanged.connect(self.sensors_horizontal_label.setEnabled)
         grid_box_layout.addWidget(self.sensors_horizontal_label, 1, 1)
         self.sensor_horizontal_spinbox = QtWidgets.QSpinBox(self)
         self.sensor_horizontal_checkbox.stateChanged.connect(self.sensor_horizontal_spinbox.setEnabled)
-        self.sensor_horizontal_checkbox.stateChanged.emit(False)
+        self.sensor_horizontal_checkbox.setChecked(True)
         grid_box_layout.addWidget(self.sensor_horizontal_spinbox, 1, 2)
         grid_layout.addWidget(self.sensors_group, 2, 0, 1, 2)
         self.dialog_button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok |
@@ -111,7 +112,18 @@ class QSetupDialog(QtWidgets.QDialog):
                                            if self.sensor_horizontal_checkbox.isChecked()
                                            else None),
             }
-            self.accepted.emit()  # TODO: dedicated slot for apply
+            self.changesApplied.emit()
+
+    def keep_sensors_checked(self):
+        sensor_checkboxes = [i for i in self.sensors_group.children() if isinstance(i, QtWidgets.QCheckBox)]
+        checked_checkboxes = [i for i in sensor_checkboxes if i.isChecked()]
+        if len(checked_checkboxes) == 1:
+            # if checked checkbox is single
+            print(checked_checkboxes[0].text())
+            checked_checkboxes[0].setDisabled(True)
+        else:
+            for cbox in sensor_checkboxes:
+                cbox.setDisabled(False)
 
 
 class HrafnagudMainWindow(MainWindow):
@@ -220,7 +232,7 @@ class HrafnagudMainWindow(MainWindow):
 
     def show_setup_dialog(self):
         dlg = QSetupDialog(self)
-        dlg.accepted.connect(self.update_scanning_settings)
+        dlg.changesApplied.connect(self.update_scanning_settings)
         dlg.exec()
 
     def update_scanning_settings(self):
