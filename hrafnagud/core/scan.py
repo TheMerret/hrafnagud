@@ -13,7 +13,7 @@ class Scan:
         self.image_capture = ImageCapture(self.driver)
         self.point_cloud_generation = PointCloudGeneration()
         self.captures_queue = queue.Queue()
-        self.table_rotation = 0
+        self.scene_rotation = 0
         self.point_cloud_callback = None
         self.scene_rotation_step = 1
 
@@ -38,7 +38,7 @@ class Scan:
 
     def process(self):
         while self.is_scanning:
-            if self.table_rotation > 360:
+            if self.scene_rotation > 360:
                 break
             if not self.captures_queue.empty():
                 capture = self.captures_queue.get()
@@ -46,10 +46,11 @@ class Scan:
                 self.captures_queue.task_done()
 
             self.driver.board.motor_move(self.scene_rotation_step)
+            self.scene_rotation += self.scene_rotation_step
 
     def process_capture(self, capture):
         point_cloud = self.point_cloud_generation.compute_point_cloud(
-            self.table_rotation,
+            self.scene_rotation,
             capture
         )
         point_cloud = point_cloud[0] + point_cloud[1]
