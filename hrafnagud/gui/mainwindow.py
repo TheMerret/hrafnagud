@@ -4,39 +4,23 @@ import serial.tools.list_ports
 from pyvistaqt import QtInteractor, MainWindow
 from qtpy import QtWidgets, QtCore
 
+from hrafnagud.core.scan import Scan
 
-class QDriverThread(QtCore.QThread):
+
+class QScannerThread(QtCore.QThread):
     coordinatesReceived = QtCore.Signal(list, name="coordinatesReceived")
 
     def __init__(self, port, parent=None):
-        super(QDriverThread, self).__init__(parent)
-        self.port = port
-        self.is_scanning = False
+        super().__init__(parent)
+        self.scan = Scan()
+        self.scan.driver.board.port_name = port
+        self.scan.point_cloud_callback = self.coordinatesReceived.emit
 
     def __del__(self):
-        self.is_scanning = False
-        if self.port is not None:
-            self.port.close()
+        self.scan.stop()
 
     def run(self):
-        # TODO: check for port is set
-        # TODO: check if port is correct
-        if not self.port.is_open:
-            self.port.open()
-        self.is_scanning = True
-        while self.is_scanning:
-            data = self.port.readline()
-            if data:
-                coordinates = self.process(data)
-                self.coordinatesReceived.emit(coordinates)
-                self.sleep(1)
-            else:
-                break
-
-    @staticmethod
-    def process(data):
-        coordinates = [list(map(float, data.split()))]
-        return coordinates
+        self.scan.start()
 
 
 class QSetupDialog(QtWidgets.QDialog):
@@ -133,7 +117,7 @@ class HrafnagudMainWindow(MainWindow):
         QtWidgets.QMainWindow.__init__(self, None)
 
         self.port = None
-        self.driverThread = QDriverThread(self.port, self)
+        self.driverThread = QScannerThread(self.port, self)
         self.driverThread.coordinatesReceived.connect(self.update_mesh)
         self.startAction = None
         self.stopAction = None
