@@ -1,16 +1,6 @@
 import math
 
 
-class ImageCapture:
-
-    def __init__(self, driver):
-        self.driver = driver
-
-    def capture_lasers(self):
-        captures = self.driver.lasers.capture()
-        return captures
-
-
 class PointCloudGeneration:
 
     def __init__(self):

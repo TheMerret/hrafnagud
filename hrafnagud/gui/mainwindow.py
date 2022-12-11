@@ -15,12 +15,23 @@ class QScannerThread(QtCore.QThread):
         self.scan = Scan()
         self.scan.driver.board.port_name = port
         self.scan.point_cloud_callback = self.coordinatesReceived.emit
+        self.finished.connect(self.stop)
 
-    def __del__(self):
+    def set_scanner_port(self, port):
+        self.scan.driver.board.port_name = port
+
+    def stop(self):
+        # TODO: control stop/start menu action buttons
         self.scan.stop()
 
     def run(self):
+        # TODO: handle exceptions to ?dialog
+        self.parent().startAction.setDisabled(True)
+        self.parent().stopAction.setDisabled(False)
         self.scan.start()
+        self.scan.join_processes()
+        self.parent().startAction.setDisabled(False)
+        self.parent().stopAction.setDisabled(True)
 
 
 class QSetupDialog(QtWidgets.QDialog):
@@ -132,15 +143,6 @@ class HrafnagudMainWindow(MainWindow):
 
         self.addDockWidget(QtCore.Qt.DockWidgetArea.LeftDockWidgetArea, self.pointsDockWidget)
 
-        self.surfaceDockWidget = QtWidgets.QDockWidget(self)
-
-        # add the pyvista interactor object
-        self.plotter_surface = QtInteractor()
-        self.signal_close.connect(self.plotter_surface.close)
-        self.surfaceDockWidget.setWidget(self.plotter_surface)
-
-        self.addDockWidget(QtCore.Qt.DockWidgetArea.RightDockWidgetArea, self.surfaceDockWidget)
-
         self.load_menu()
 
     def load_menu(self):
@@ -154,11 +156,6 @@ class HrafnagudMainWindow(MainWindow):
         show_points_action.triggered.connect(self.pointsDockWidget.setVisible)
         meshes_menu.addAction(show_points_action)
         show_points_action.setChecked(True)
-        show_surface_action = QtWidgets.QAction('Show Surface', self)
-        show_surface_action.setCheckable(True)
-        show_surface_action.triggered.connect(self.surfaceDockWidget.setVisible)
-        meshes_menu.addAction(show_surface_action)
-        show_surface_action.setChecked(True)
 
         setting_submenu = file_menu.addMenu("Settings")
         ports_submenu = setting_submenu.addMenu("Ports")
@@ -186,9 +183,9 @@ class HrafnagudMainWindow(MainWindow):
 
     def set_comport(self):
         # TODO: move port to driver and don't open without start
-        self.port = serial.Serial(self.sender().text(), self.PORT_BAUDRATE)
-        self.driverThread.port = self.port
-        QtWidgets.QMessageBox.information(self, "Success!", f"{self.port.port} is set")
+        port = self.sender().text()
+        self.driverThread.set_scanner_port(port)
+        QtWidgets.QMessageBox.information(self, "Success!", f"{port} is set")
         # TODO: more casual showing start button
         self.startAction.setDisabled(False)
 
@@ -199,17 +196,13 @@ class HrafnagudMainWindow(MainWindow):
                                                                         "STL (*.stl)")
         if not save_path:
             return
-        (self.plotter_points.mesh + self.plotter_surface.mesh.extract_surface()).save(save_path)
+        self.plotter_points.mesh.save(save_path)
 
     def start_scan(self):
         self.driverThread.start()
-        self.startAction.setDisabled(True)
-        self.stopAction.setDisabled(False)
 
     def stop_scan(self):
-        self.driverThread.terminate()
-        self.startAction.setDisabled(False)
-        self.stopAction.setDisabled(True)
+        self.driverThread.stop()
 
     def update_mesh(self, coordinates):
         self.plotter_points.add_points(pv.PolyData(coordinates))
