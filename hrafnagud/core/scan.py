@@ -64,5 +64,4 @@ class Scan:
             scene_rotation,
             captures
         )
-        point_cloud = point_cloud[0] + point_cloud[1]
         self.point_cloud_callback(point_cloud)

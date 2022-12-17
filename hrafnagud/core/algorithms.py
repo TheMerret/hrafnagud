@@ -20,25 +20,21 @@ class PointCloudGeneration:
             sensor_distance
         ) = sensor_data
         scene_rotation = math.radians(scene_rotation + 180 * index)
-        sensor_horizontal_rotation = math.radians(sensor_vertical_rotation)
+        sensor_horizontal_rotation = math.radians(sensor_horizontal_rotation)
         sensor_vertical_rotation = math.radians(sensor_vertical_rotation)
         x = (
-                self.scene_radius -
                 self.scene_radius *
-                math.cos(scene_rotation) +
+                math.cos(scene_rotation) -
                 sensor_distance *
-                math.cos(sensor_horizontal_rotation) *
-                math.cos(sensor_vertical_rotation) *
-                math.cos(scene_rotation)
+                math.cos(scene_rotation + sensor_horizontal_rotation) *
+                math.cos(sensor_vertical_rotation)
         )
         y = (
-                self.scene_radius * math.sin(scene_rotation) -
+                self.scene_radius *
+                math.sin(scene_rotation) *
+                math.cos(sensor_vertical_rotation) -
                 sensor_distance *
-                math.cos(sensor_horizontal_rotation) *
-                math.cos(sensor_vertical_rotation) *
-                math.sin(scene_rotation) +
-                sensor_distance *
-                math.sin(sensor_horizontal_rotation)
+                math.sin(scene_rotation + sensor_horizontal_rotation)
         )
         z = sensor_height - sensor_height * math.sin(sensor_vertical_rotation)
         return [x, y, z]
