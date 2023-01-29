@@ -1,3 +1,4 @@
+import json
 import struct
 
 import serial
@@ -41,4 +42,19 @@ class Driver:
         return data
 
     def start(self):
-        self.board.send_command(b"1")  # TODO: command as constant
+        self.send_command("start")
+
+    def stop(self):
+        self.send_command("stop")
+
+    def send_command(self, cmd, *args):
+        command = {
+            "cmd": cmd,
+            "argc": len(args),
+            "argv": list(args)
+        }
+        serialized = json.dumps(command)
+        self.board.send_command(serialized.encode("ascii"))
+
+    def set_setting_field(self, field, value):
+        self.send_command("set", field, str(value))

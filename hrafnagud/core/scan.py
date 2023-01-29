@@ -15,10 +15,12 @@ class Scan:
         self.point_cloud_callback = None
         self.threads = []
 
+    def connect(self):
+        self.driver.board.connect()
+
     def start(self):
         if not self.is_scanning:
             self.is_scanning = True
-            self.driver.board.connect()
             self.driver.start()
             self.threads.append(threading.Thread(target=self.capture))
             self.threads.append(threading.Thread(target=self.process))
@@ -31,9 +33,8 @@ class Scan:
         self.threads.clear()
 
     def stop(self):
-        if self.is_scanning:
-            self.is_scanning = False
-            self.driver.board.disconnect()
+        self.driver.stop()
+        self.driver.board.disconnect()
 
     def capture(self):
         while self.is_scanning:
@@ -65,3 +66,24 @@ class Scan:
             captures
         )
         self.point_cloud_callback(point_cloud)
+
+    def set_settings(self, settings):
+        self.driver.set_setting_field("MAX_SCENE_ROTATION_STEP", settings["MAX_SCENE_ROTATION_STEP"])
+        self.driver.set_setting_field("MAX_SCENE_ROTATION", settings["MAX_SCENE_ROTATION"])
+        self.driver.set_setting_field("SENSOR_HEIGHT_STEP", settings["SENSOR_HEIGHT_STEP"])
+        self.driver.set_setting_field("SCENE_ROTATION_STEP", settings["SCENE_ROTATION_STEP"])
+        scanning_direction = ""
+        if settings["SENSOR_HORIZONTAL_DIRECTION"] and settings["SENSOR_VERTICAL_DIRECTION"]:
+            scanning_direction = "both"
+        elif settings["SENSOR_HORIZONTAL_DIRECTION"]:
+            scanning_direction = "horizontally"
+        elif settings["SENSOR_VERTICAL_DIRECTION"]:
+            scanning_direction = "vertically"
+        self.driver.set_setting_field("SCANNING_DIRECTION", scanning_direction)
+        self.driver.set_setting_field("SENSOR_HORIZONTAL_ROTATION_STEP",
+                                      settings["SENSOR_HORIZONTAL_ROTATION_STEP"])
+        self.driver.set_setting_field("SENSOR_VERTICAL_ROTATION_STEP",
+                                      settings["SENSOR_VERTICAL_ROTATION_STEP"])
+        self.driver.set_setting_field("MAX_SENSOR_VERTICAL_ROTATION",
+                                      settings["MAX_SENSOR_VERTICAL_ROTATION"])
+        self.driver.set_setting_field("SENSOR_MAX_HEIGHT", settings["SENSOR_MAX_HEIGHT"])

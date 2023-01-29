@@ -33,6 +33,9 @@ class QScannerThread(QtCore.QThread):
         self.parent().startAction.setDisabled(False)
         self.parent().stopAction.setDisabled(True)
 
+    def set_settings(self, settings):
+        self.scan.set_settings(settings)
+
 
 class QSetupDialog(QtWidgets.QDialog):
     changesApplied = QtCore.Signal(name="changesApplied")
@@ -41,24 +44,59 @@ class QSetupDialog(QtWidgets.QDialog):
         super().__init__(parent)
         # TODO: oop data serialization
         self.conf = {
-            "table_rotation": 1,
-            "vertical_step": 1,
-            "sensor_vertical": False,
-            "sensor_vertical_step": None,
-            "sensor_horizontal": True,
-            "sensor_horizontal_step": 1
+            "MAX_SCENE_ROTATION_STEP": 30,
+            "MAX_SCENE_ROTATION": 180,
+            "SENSOR_HEIGHT_STEP": 1,
+            "SCENE_ROTATION_STEP": 1,
+            "SENSOR_HORIZONTAL_DIRECTION": True,
+            "SENSOR_HORIZONTAL_ROTATION_STEP": 1,
+            "SENSOR_VERTICAL_DIRECTION": False,
+            "SENSOR_VERTICAL_ROTATION_STEP": 1,
+            "MAX_SENSOR_VERTICAL_ROTATION": 45,
+            "SENSOR_MAX_HEIGHT": 3,
         }
 
         grid_layout = QtWidgets.QGridLayout()
         self.setLayout(grid_layout)
-        self.rotation_label = QtWidgets.QLabel("Угол поворота", self)
-        grid_layout.addWidget(self.rotation_label, 0, 0)
-        self.rotation_spinbox = QtWidgets.QSpinBox(self)  # TODO: set max to 360
-        grid_layout.addWidget(self.rotation_spinbox, 0, 1)
-        self.vertical_move_label = QtWidgets.QLabel("Шаг по вертикали", self)
-        grid_layout.addWidget(self.vertical_move_label, 1, 0)
-        self.vertical_move_spinbox = QtWidgets.QSpinBox(self)
-        grid_layout.addWidget(self.vertical_move_spinbox, 1, 1)
+        row_ind = 0
+        self.phase_rotation_label = QtWidgets.QLabel("Шаг фазы", self)
+        grid_layout.addWidget(self.phase_rotation_label, row_ind, 0)
+        self.phase_rotation_spinbox = QtWidgets.QSpinBox(self)
+        self.phase_rotation_spinbox.setValue(self.conf["MAX_SCENE_ROTATION_STEP"])
+        grid_layout.addWidget(self.phase_rotation_spinbox, row_ind, 1)
+        row_ind += 1
+        self.max_scene_rotation_label = QtWidgets.QLabel("Максимальный поворот стола", self)
+        grid_layout.addWidget(self.max_scene_rotation_label, row_ind, 0)
+        self.max_scene_rotation_spinbox = QtWidgets.QSpinBox(self)
+        self.max_scene_rotation_spinbox.setMaximum(360)
+        self.max_scene_rotation_spinbox.setValue(self.conf["MAX_SCENE_ROTATION"])
+        grid_layout.addWidget(self.max_scene_rotation_spinbox, row_ind, 1)
+        row_ind += 1
+        self.scene_rotation_label = QtWidgets.QLabel("Шаг поворота стола", self)
+        grid_layout.addWidget(self.scene_rotation_label, row_ind, 0)
+        self.scene_rotation_spinbox = QtWidgets.QSpinBox(self)
+        self.scene_rotation_spinbox.setValue(self.conf["SCENE_ROTATION_STEP"])
+        grid_layout.addWidget(self.scene_rotation_spinbox, row_ind, 1)
+        row_ind += 1
+        self.sensor_height_step_label = QtWidgets.QLabel("Шаг по высоте", self)
+        grid_layout.addWidget(self.sensor_height_step_label, row_ind, 0)
+        self.sensor_height_step_spinbox = QtWidgets.QSpinBox(self)
+        self.sensor_height_step_spinbox.setValue(self.conf["SENSOR_HEIGHT_STEP"])
+        grid_layout.addWidget(self.sensor_height_step_spinbox, row_ind, 1)
+        row_ind += 1
+        self.max_height_label = QtWidgets.QLabel("Максимальная высота", self)
+        grid_layout.addWidget(self.max_height_label, row_ind, 0)
+        self.max_height_spinbox = QtWidgets.QSpinBox(self)
+        self.max_height_spinbox.setValue(self.conf["SENSOR_MAX_HEIGHT"])
+        grid_layout.addWidget(self.max_height_spinbox, row_ind, 1)
+        row_ind += 1
+        self.max_vertical_rotation_label = QtWidgets.QLabel("Максимальный поворот по вертикали",
+                                                            self)
+        grid_layout.addWidget(self.max_vertical_rotation_label, row_ind, 0)
+        self.max_vertical_rotation_spinbox = QtWidgets.QSpinBox(self)
+        self.max_vertical_rotation_spinbox.setValue(self.conf["MAX_SENSOR_VERTICAL_ROTATION"])
+        grid_layout.addWidget(self.max_vertical_rotation_spinbox, row_ind, 1)
+        row_ind += 1
         self.sensors_group = QtWidgets.QGroupBox("Оси датчика", self)
         grid_box_layout = QtWidgets.QGridLayout()
         self.sensors_group.setLayout(grid_box_layout)
@@ -69,6 +107,7 @@ class QSetupDialog(QtWidgets.QDialog):
         self.sensor_vertical_checkbox.stateChanged.connect(self.sensors_vertical_label.setEnabled)
         grid_box_layout.addWidget(self.sensors_vertical_label, 0, 1)
         self.sensor_vertical_spinbox = QtWidgets.QSpinBox(self)
+        self.sensor_vertical_spinbox.setValue(self.conf["SENSOR_VERTICAL_ROTATION_STEP"])
         self.sensor_vertical_checkbox.stateChanged.connect(self.sensor_vertical_spinbox.setEnabled)
         self.sensor_vertical_checkbox.stateChanged.emit(False)
         grid_box_layout.addWidget(self.sensor_vertical_spinbox, 0, 2)
@@ -79,10 +118,12 @@ class QSetupDialog(QtWidgets.QDialog):
         self.sensor_horizontal_checkbox.stateChanged.connect(self.sensors_horizontal_label.setEnabled)
         grid_box_layout.addWidget(self.sensors_horizontal_label, 1, 1)
         self.sensor_horizontal_spinbox = QtWidgets.QSpinBox(self)
+        self.sensor_horizontal_spinbox.setValue(self.conf["SENSOR_HORIZONTAL_ROTATION_STEP"])
         self.sensor_horizontal_checkbox.stateChanged.connect(self.sensor_horizontal_spinbox.setEnabled)
         self.sensor_horizontal_checkbox.setChecked(True)
         grid_box_layout.addWidget(self.sensor_horizontal_spinbox, 1, 2)
-        grid_layout.addWidget(self.sensors_group, 2, 0, 1, 2)
+        grid_layout.addWidget(self.sensors_group, row_ind, 0, 1, 2)
+        row_ind += 1
         self.dialog_button_box = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok |
                                                             QtWidgets.QDialogButtonBox.Apply |
                                                             QtWidgets.QDialogButtonBox.Cancel)
@@ -90,22 +131,22 @@ class QSetupDialog(QtWidgets.QDialog):
         self.dialog_button_box.accepted.connect(self.accept)
         self.dialog_button_box.rejected.connect(self.reject)
         self.dialog_button_box.clicked.connect(self.button_clicked)
-        grid_layout.addWidget(self.dialog_button_box, 3, 0, 1, 2)
+        grid_layout.addWidget(self.dialog_button_box, row_ind, 0, 1, 2)
 
     def button_clicked(self, btn):
         if btn is self.apply_btn:
             # TODO: save conf to global data store
             self.conf = {
-                "table_rotation": self.rotation_spinbox.value(),
-                "vertical_step": self.vertical_move_spinbox.value(),
-                "sensor_vertical": self.sensor_vertical_checkbox.isChecked(),
-                "sensor_vertical_step": (self.sensor_vertical_spinbox.value()
-                                         if self.sensor_vertical_checkbox.isChecked()
-                                         else None),
-                "sensor_horizontal": self.sensor_vertical_checkbox.isChecked(),
-                "sensor_horizontal_step": (self.sensor_vertical_spinbox.value()
-                                           if self.sensor_horizontal_checkbox.isChecked()
-                                           else None),
+                "MAX_SCENE_ROTATION_STEP": self.phase_rotation_spinbox.value(),
+                "MAX_SCENE_ROTATION": self.max_scene_rotation_spinbox.value(),
+                "SENSOR_HEIGHT_STEP": self.sensor_height_step_spinbox.value(),
+                "SCENE_ROTATION_STEP": self.scene_rotation_spinbox.value(),
+                "SENSOR_HORIZONTAL_DIRECTION": self.sensor_horizontal_checkbox.isChecked(),
+                "SENSOR_HORIZONTAL_ROTATION_STEP": self.sensor_horizontal_spinbox.value(),
+                "SENSOR_VERTICAL_DIRECTION": self.sensor_vertical_checkbox.isChecked(),
+                "SENSOR_VERTICAL_ROTATION_STEP": self.sensor_vertical_spinbox.value(),
+                "MAX_SENSOR_VERTICAL_ROTATION": self.max_vertical_rotation_spinbox.value(),
+                "SENSOR_MAX_HEIGHT": self.max_height_spinbox.value(),
             }
             self.changesApplied.emit()
 
@@ -114,7 +155,6 @@ class QSetupDialog(QtWidgets.QDialog):
         checked_checkboxes = [i for i in sensor_checkboxes if i.isChecked()]
         if len(checked_checkboxes) == 1:
             # if checked checkbox is single
-            print(checked_checkboxes[0].text())
             checked_checkboxes[0].setDisabled(True)
         else:
             for cbox in sensor_checkboxes:
@@ -130,6 +170,7 @@ class HrafnagudMainWindow(MainWindow):
         self.port = None
         self.driverThread = QScannerThread(self.port, self)
         self.driverThread.coordinatesReceived.connect(self.update_mesh)
+        self.connectAction = None
         self.startAction = None
         self.stopAction = None
         self.setupAction = None
@@ -171,6 +212,9 @@ class HrafnagudMainWindow(MainWindow):
         stl_action = export_submenu.addAction("stl")
         stl_action.triggered.connect(self.export_stl)
 
+        self.connectAction = main_menu.addAction("Connect")
+        self.connectAction.triggered.connect(self.connect_scan)
+        self.connectAction.setDisabled(True)
         self.startAction = main_menu.addAction("Start")
         self.startAction.triggered.connect(self.start_scan)
         self.startAction.setDisabled(True)
@@ -187,7 +231,7 @@ class HrafnagudMainWindow(MainWindow):
         self.driverThread.set_scanner_port(port)
         QtWidgets.QMessageBox.information(self, "Success!", f"{port} is set")
         # TODO: more casual showing start button
-        self.startAction.setDisabled(False)
+        self.connectAction.setDisabled(False)
 
     def export_stl(self):
         save_path, _file_format = QtWidgets.QFileDialog.getSaveFileName(self,
@@ -197,6 +241,11 @@ class HrafnagudMainWindow(MainWindow):
         if not save_path:
             return
         self.plotter_points.mesh.save(save_path)
+
+    def connect_scan(self):
+        self.driverThread.scan.connect()
+        self.connectAction.setDisabled(True)
+        self.startAction.setDisabled(False)
 
     def start_scan(self):
         self.driverThread.start()
@@ -213,4 +262,4 @@ class HrafnagudMainWindow(MainWindow):
         dlg.exec()
 
     def update_scanning_settings(self):
-        print(self.sender().conf)
+        self.driverThread.set_settings(self.sender().conf)
