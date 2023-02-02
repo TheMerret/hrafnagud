@@ -253,8 +253,8 @@ class HrafnagudMainWindow(MainWindow):
     def stop_scan(self):
         self.driverThread.stop()
 
-    def update_mesh(self, coordinates):
-        self.plotter_points.add_points(pv.PolyData(coordinates))
+    def update_mesh(self, point):
+        self.plotter_points.add_points(pv.PolyData(point))
 
     def show_setup_dialog(self):
         dlg = QSetupDialog(self)

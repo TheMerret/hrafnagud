@@ -31,13 +31,12 @@ class Driver:
 
     def __init__(self):
         self.board = Board(self)
-        self.scanning_data_structure = struct.Struct("f4f4f")
 
     def capture_data(self):
-        raw_data = self.board.serial_port.read(self.scanning_data_structure.size)
+        raw_data = self.board.serial_port.readline()
         try:
-            data = self.scanning_data_structure.unpack(raw_data)
-        except struct.error:
+            data = json.loads(raw_data)
+        except json.JSONDecodeError:
             data = None  # TODO: raise dedicated error
         return data
 

@@ -42,7 +42,8 @@ class Scan:
             if captures is None:
                 self.stop()
                 break
-            self.captures_queue.put(captures)
+            for c in captures:
+                self.captures_queue.put(c)
 
     def capture_points(self):
         captures = self.driver.capture_data()
@@ -59,13 +60,14 @@ class Scan:
         if not capture:
             # TODO: raise error
             return
-        scene_rotation, *capture = capture
-        captures = capture[:len(capture) // 2], capture[len(capture) // 2:]
-        point_cloud = self.point_cloud_generation.compute_point_cloud(
-            scene_rotation,
-            captures
+        point = self.point_cloud_generation.compute_point(
+            scene_rotation=capture["sceneAngle"],
+            sensor_height=capture["height"],
+            sensor_horizontal_rotation=capture["horizontalAngle"],
+            sensor_vertical_rotation=capture["verticalAngle"],
+            sensor_distance=capture["distance"],
         )
-        self.point_cloud_callback(point_cloud)
+        self.point_cloud_callback(point)
 
     def set_settings(self, settings):
         self.driver.set_setting_field("MAX_SCENE_ROTATION_STEP", settings["MAX_SCENE_ROTATION_STEP"])
