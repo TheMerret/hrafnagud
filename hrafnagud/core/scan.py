@@ -39,6 +39,7 @@ class Scan:
     def capture(self):
         while self.is_scanning:
             captures = self.capture_points()
+            print(captures)
             if captures is None:
                 self.stop()
                 break
@@ -60,13 +61,18 @@ class Scan:
         if not capture:
             # TODO: raise error
             return
-        point = self.point_cloud_generation.compute_point(
-            scene_rotation=capture["sceneAngle"],
-            sensor_height=capture["height"],
-            sensor_horizontal_rotation=capture["horizontalAngle"],
-            sensor_vertical_rotation=capture["verticalAngle"],
-            sensor_distance=capture["distance"],
-        )
+        try:
+            point = self.point_cloud_generation.compute_point(
+                scene_rotation=capture["sceneAngle"],
+                sensor_height=capture["height"],
+                sensor_horizontal_rotation=capture["horizontalAngle"],
+                sensor_vertical_rotation=capture["verticalAngle"],
+                sensor_distance=capture["distance"],
+            )
+        except Exception:
+            point = None
+        if point is None:
+            return
         self.point_cloud_callback(point)
 
     def set_settings(self, settings):
